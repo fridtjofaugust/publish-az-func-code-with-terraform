@@ -60,7 +60,7 @@ resource "azurerm_windows_virtual_machine" "srv01" {
   location            = azurerm_resource_group.srv01.location
   size                = "Standard_B2ms"
   admin_username      = "sysadmin"
-  admin_password      = random_password.serverspassword-srv01.result
+  admin_password      = "Vinter2016" # random_password.serverspassword-srv01.result
   network_interface_ids = [
     azurerm_network_interface.srv01.id,
   ]
@@ -85,23 +85,23 @@ resource "azurerm_windows_virtual_machine" "srv01" {
 ################################################
 # Add secrets to Key Vault
 ################################################
-resource "azurerm_key_vault_secret" "serverslogin-srv01" {
-  name         = "${var.subscriptionname}-LocalAdminLogin-srv01"
-  value        = azurerm_windows_virtual_machine.srv01.admin_username
-  key_vault_id = azurerm_key_vault.keyvault.id
-  depends_on = [
-    azurerm_role_assignment.keyvaultadmin
-  ]
-}
+# resource "azurerm_key_vault_secret" "serverslogin-srv01" {
+#   name         = "${var.subscriptionname}-LocalAdminLogin-srv01"
+#   value        = azurerm_windows_virtual_machine.srv01.admin_username
+#   key_vault_id = azurerm_key_vault.keyvault.id
+#   depends_on = [
+#     azurerm_role_assignment.keyvaultadmin
+#   ]
+# }
 
-resource "azurerm_key_vault_secret" "serverspassword-srv01" {
-  name         = "${var.subscriptionname}-LocalAdminPassword-srv01"
-  value        = random_password.serverspassword-srv01.result
-  key_vault_id = azurerm_key_vault.keyvault.id
-  depends_on = [
-    azurerm_role_assignment.keyvaultadmin
-  ]
-}
+# resource "azurerm_key_vault_secret" "serverspassword-srv01" {
+#   name         = "${var.subscriptionname}-LocalAdminPassword-srv01"
+#   value        = random_password.serverspassword-srv01.result
+#   key_vault_id = azurerm_key_vault.keyvault.id
+#   depends_on = [
+#     azurerm_role_assignment.keyvaultadmin
+#   ]
+# }
 
 
 ################################################

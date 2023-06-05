@@ -47,25 +47,34 @@ resource "azurerm_subnet" "endpointsubnet" {
 }
 
 
-
-######################################################
-# Private endpoint to Backend app
-######################################################
-resource "azurerm_private_endpoint" "privateendpoint" {
-  name                = "backwebappprivateendpoint"
-  location            = azurerm_resource_group.rg.location
+################################################
+#  Backend NSG
+################################################
+resource "azurerm_network_security_group" "endpoint" {
+  name                = "${var.subscriptionname}-network-vnet-endpoint-nsg"
+  location            = var.location
   resource_group_name = azurerm_resource_group.rg.name
-  subnet_id           = azurerm_subnet.endpointsubnet.id
 
-  private_dns_zone_group {
-    name                 = "privatednszonegroup"
-    private_dns_zone_ids = [azurerm_private_dns_zone.dnsprivatezone.id]
+  # inbound
+  security_rule {
+    name                       = "AllowRDPfromTRDtoVNET"
+    description                = "Allow RDP from TRD to VNet"
+    priority                   = 100
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "3389"
+    source_address_prefix      = "92.62.32.42" # TRD office IP
+    destination_address_prefix = "VirtualNetwork"
   }
+}
 
-  private_service_connection {
-    name                           = "privateendpointconnection"
-    private_connection_resource_id = azurerm_function_app.function_app.id
-    subresource_names              = ["sites"]
-    is_manual_connection           = false
-  }
+
+################################################
+#  Associate Endpoint NSG with subnet
+################################################
+resource "azurerm_subnet_network_security_group_association" "endpoint" {
+  subnet_id                 = azurerm_subnet.endpointsubnet.id
+  network_security_group_id = azurerm_network_security_group.endpoint.id
 }
