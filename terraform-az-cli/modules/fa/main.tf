@@ -53,7 +53,7 @@ resource "azurerm_function_app" "function_app" {
     "FUNCTIONS_WORKER_RUNTIME"    = "node",
     "AzureWebJobsDisableHomepage" = "true",
     "WEBSITE_NODE_DEFAULT_VERSION" : var.os == "windows" ? "~14" : null
-    "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING" = azurerm_storage_account.storage_account.primary_access_key
+    "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING" = azurerm_storage_account.storage_account.primary_connection_string
     "WEBSITE_CONTENTSHARE"                     = "staging-content"
   }
   os_type = var.os == "linux" ? "linux" : null
