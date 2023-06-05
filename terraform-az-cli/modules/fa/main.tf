@@ -70,7 +70,11 @@ resource "azurerm_function_app" "function_app" {
     "AzureWebJobsDisableHomepage" = "true",
     "WEBSITE_NODE_DEFAULT_VERSION" : var.os == "windows" ? "~14" : null
     "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING" = azurerm_storage_account.storage_account.primary_connection_string
-    "WEBSITE_CONTENTSHARE"                     = "staging-content"
+    "WEBSITE_CONTENTSHARE"                     = "staging-content",
+    "WEBSITE_DNS_SERVER" : "168.63.129.16",
+    "WEBSITE_VNET_ROUTE_ALL" : "1",
+    "SCM_DO_BUILD_DURING_DEPLOYMENT" = "true",
+    "WEBSITE_RUN_FROM_PACKAGE"       = "1"
   }
   os_type = var.os == "linux" ? "linux" : null
   site_config {
@@ -82,11 +86,14 @@ resource "azurerm_function_app" "function_app" {
   storage_account_access_key = azurerm_storage_account.storage_account.primary_access_key
   version                    = "~3"
 
+
   lifecycle {
     ignore_changes = [
       app_settings["WEBSITE_CONTENTSHARE"],
     ]
   }
+
+
 }
 
 locals {
@@ -112,6 +119,14 @@ output "function_app_default_hostname" {
   value = azurerm_function_app.function_app.default_hostname
 }
 
+
+######################################################
+# VNET swift connection
+# ######################################################
+# resource "azurerm_app_service_virtual_network_swift_connection" "vnetintegrationconnection" {
+#   app_service_id = azurerm_function_app.function_app.id
+#   subnet_id      = azurerm_subnet.integrationsubnet.id
+# }
 
 ################################################
 # Create Random String
