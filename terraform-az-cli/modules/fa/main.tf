@@ -53,14 +53,14 @@ resource "azurerm_function_app" "function_app" {
     "FUNCTIONS_WORKER_RUNTIME"    = "node",
     "AzureWebJobsDisableHomepage" = "true",
     "WEBSITE_NODE_DEFAULT_VERSION" : var.os == "windows" ? "~14" : null
-    "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING" = "DefaultEndpointsProtocol=https;AccountName=tfpublishwinconsstrglab;AccountKey=37BA50XzrYyPBg9wCrh194feYV4GIRgbqugBFFpmbBiF4HYSnoRy7SgY7C+S6vlcfXTs1xoyslBd+ASt8Vbp6Q==;EndpointSuffix=core.windows.net"
+    "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING" = azurerm_storage_account.storage_account.primary_access_key
     "WEBSITE_CONTENTSHARE"                     = "staging-content"
   }
   os_type = var.os == "linux" ? "linux" : null
   site_config {
     linux_fx_version          = var.os == "linux" ? "node|14" : null
     use_32_bit_worker_process = false
-    elastic_instance_minimum  = 1 # had to be minimum 1
+    elastic_instance_minimum  = 1 # had to be minimum 1, cant be zero.
   }
   storage_account_name       = azurerm_storage_account.storage_account.name
   storage_account_access_key = azurerm_storage_account.storage_account.primary_access_key
