@@ -24,7 +24,7 @@ resource "azurerm_resource_group" "resource_group" {
 }
 
 resource "azurerm_storage_account" "storage_account" {
-  name = "${replace(var.project, "-", "")}strg"
+  name = "${replace(var.project, "-", "")}st${local.subshort}"
   resource_group_name = azurerm_resource_group.resource_group.name
   location = var.location
   account_tier = "Standard"
@@ -75,7 +75,7 @@ resource "azurerm_storage_blob" "storage_blob" {
 }
 
 resource "azurerm_function_app" "function_app" {
-  name                       = "${var.project}-function-app"
+  name                       = "${var.project}-function-app-lab2"
   resource_group_name        = azurerm_resource_group.resource_group.name
   location                   = var.location
   app_service_plan_id        = azurerm_app_service_plan.app_service_plan.id
@@ -97,4 +97,20 @@ resource "azurerm_function_app" "function_app" {
 
 output "function_app_default_hostname" {
   value = azurerm_function_app.function_app.default_hostname
+}
+
+
+locals {
+  unique   = substr("${var.subscriptionid}", -5, -1)
+  subshort = replace("${var.subscriptionname}", "-", "")
+}
+
+variable "subscriptionname" {
+  type    = string
+  default = "lab"
+}
+
+variable "subscriptionid" {
+  type    = string
+  default = "10a8bd0e-f9c0-4f29-9afa-1969c127608b"
 }
