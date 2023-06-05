@@ -6,6 +6,10 @@ terraform {
       # The ~> operator is a convenient shorthand for allowing only patch releases within a specific minor release.
       version = "~> 2.26"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = ">= 3.4.3"
+    }
   }
 }
 
@@ -14,7 +18,7 @@ provider "azurerm" {
 }
 
 locals {
-  location = "East US"
+  location = "westeurope"
 }
 
 data "archive_file" "file_function_app" {
@@ -25,40 +29,40 @@ data "archive_file" "file_function_app" {
 
 module "linux_premium" {
   source = "./modules/fa"
-  
-  project = "tf-publish-lin-pre"
-  location = local.location
-  os = "linux"
+
+  project      = "tf-publish-lin-pre"
+  location     = local.location
+  os           = "linux"
   hosting_plan = "premium"
   archive_file = data.archive_file.file_function_app
 }
 
 module "linux_consumption" {
   source = "./modules/fa"
-  
-  project = "tf-publish-lin-cons"
-  location = local.location
-  os = "linux"
+
+  project      = "tf-publish-lin-cons"
+  location     = local.location
+  os           = "linux"
   hosting_plan = "consumption"
   archive_file = data.archive_file.file_function_app
 }
 
 module "windows_premium" {
   source = "./modules/fa"
-  
-  project = "tf-publish-win-pre"
-  location = local.location
-  os = "windows"
+
+  project      = "tf-publish-win-pre"
+  location     = local.location
+  os           = "windows"
   hosting_plan = "premium"
   archive_file = data.archive_file.file_function_app
 }
 
 module "windows_consumption" {
   source = "./modules/fa"
-  
-  project = "tf-publish-win-cons"
-  location = local.location
-  os = "windows"
+
+  project      = "tf-publish-win-cons"
+  location     = local.location
+  os           = "windows"
   hosting_plan = "consumption"
   archive_file = data.archive_file.file_function_app
 }

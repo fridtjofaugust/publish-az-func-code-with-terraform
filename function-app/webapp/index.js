@@ -3,7 +3,7 @@ module.exports = async function (context, req) {
     const headers = {
         'content-type': 'text/html; charset=utf-8'
     }
-    const body = 'Hello world'
+    const body = 'Hello azure!'
 
     context.res = {
         status,
