@@ -18,11 +18,19 @@ variable "archive_file" {
 
 }
 
+
+################################################
+# Create Resource Group
+################################################
 resource "azurerm_resource_group" "resource_group" {
   name     = "${var.project}-resource-group"
   location = var.location
 }
 
+
+################################################
+# Create storage account
+################################################
 resource "azurerm_storage_account" "storage_account" {
   name                     = "${replace(var.project, "-", "")}strg${local.subshort}"
   resource_group_name      = azurerm_resource_group.resource_group.name
@@ -31,18 +39,26 @@ resource "azurerm_storage_account" "storage_account" {
   account_replication_type = "LRS"
 }
 
+
+################################################
+# Create service plan
+################################################
 resource "azurerm_app_service_plan" "app_service_plan" {
   name                = "${var.project}-app-service-plan"
   resource_group_name = azurerm_resource_group.resource_group.name
   location            = var.location
   kind                = var.hosting_plan == "premium" ? "elastic" : "FunctionApp"
-  reserved            = var.os == "linux"
+  reserved            = var.os == "linux" # if set to linux its set to true. If not its false. 
   sku {
-    tier = var.hosting_plan == "premium" ? "ElasticPremium" : "Dynamic"
+    tier = var.hosting_plan == "premium" ? "ElasticPremium" : "Dynamic" # If var.hosting_plan equals "premium", the tier is set to "ElasticPremium". Otherwise its Dynamic. 
     size = var.hosting_plan == "premium" ? "EP1" : "Y1"
   }
 }
 
+
+################################################
+# Create function app
+################################################
 resource "azurerm_function_app" "function_app" {
   name                = "${var.project}-function-app-lab"
   resource_group_name = azurerm_resource_group.resource_group.name
@@ -65,12 +81,22 @@ resource "azurerm_function_app" "function_app" {
   storage_account_name       = azurerm_storage_account.storage_account.name
   storage_account_access_key = azurerm_storage_account.storage_account.primary_access_key
   version                    = "~3"
+
+  lifecycle {
+    ignore_changes = [
+      app_settings["WEBSITE_CONTENTSHARE"],
+    ]
+  }
 }
 
 locals {
   publish_code_command = "az webapp deployment source config-zip --resource-group ${azurerm_resource_group.resource_group.name} --name ${azurerm_function_app.function_app.name} --src ${var.archive_file.output_path}"
 }
 
+
+################################################
+# Publish package through null resource
+################################################
 resource "null_resource" "function_app_publish" {
   provisioner "local-exec" {
     command = local.publish_code_command
