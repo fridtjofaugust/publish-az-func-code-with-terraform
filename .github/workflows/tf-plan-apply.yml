@@ -28,6 +28,12 @@ jobs:
     outputs:
       tfplanExitCode: ${{ steps.tf-plan.outputs.exitcode }}
     steps:
+    # sign into Azure   
+    - name: Sign in to Azure 
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
     # Checkout the repository to the GitHub Actions runner
     - name: Checkout
       uses: actions/checkout@v3
