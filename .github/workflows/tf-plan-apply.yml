@@ -38,15 +38,15 @@ jobs:
 
     # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
     - name: Terraform Init
-      working-directory: cfg/  
+      working-directory: terraform-az-cli/  
       run: terraform init
 
     - name: Terraform Plan
-      working-directory: cfg/  
+      working-directory: terraform-az-cli/
       run: terraform plan -out=./tfplan
 
     # Terraform Apply
     - name: Terraform Apply
-      working-directory: cfg/  
+      working-directory: terraform-az-cli/ 
       run: terraform apply -no-color -auto-approve -input=false ./tfplan
         
