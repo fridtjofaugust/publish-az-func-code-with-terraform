@@ -19,6 +19,9 @@ variable "archive_file" {
 }
 
 
+# This code provisions an Azure Function App, configures its settings, 
+# publishes the code from an archive file, and retrieves the default hostname of the function app as an output.
+
 ################################################
 # Create Resource Group
 ################################################
