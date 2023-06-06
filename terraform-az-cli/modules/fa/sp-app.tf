@@ -9,19 +9,19 @@ data "azuread_application_published_app_ids" "graphapi" {}
 ################################################
 resource "azuread_application" "serviceprincipal" {
   display_name = "${var.subscriptionname}-sp-functionapp"
-  required_resource_access {
-    resource_app_id = data.azuread_application_published_app_ids.graphapi.result.MicrosoftGraph
-    resource_access {
-      id   = azuread_service_principal.msgraph.oauth2_permission_scope_ids["User.Read"]
-      type = "Scope"
-    }
-  }
+  # required_resource_access {
+  #   resource_app_id = data.azuread_application_published_app_ids.graphapi.result.MicrosoftGraph
+  #   resource_access {
+  #     id   = azuread_service_principal.msgraph.oauth2_permission_scope_ids["User.Read"]
+  #     type = "Scope"
+  #   }
+  # }
 }
 
-resource "azuread_service_principal" "msgraph" {
-  application_id = data.azuread_application_published_app_ids.graphapi.result.MicrosoftGraph
-  use_existing   = true
-}
+# resource "azuread_service_principal" "msgraph" {
+#   application_id = data.azuread_application_published_app_ids.graphapi.result.MicrosoftGraph
+#   use_existing   = true
+# }
 
 resource "azuread_service_principal" "serviceprincipal" {
   application_id = azuread_application.serviceprincipal.application_id
@@ -91,8 +91,8 @@ resource "azurerm_role_assignment" "az-rbac-res-terraform-owner" {
   principal_id         = azuread_service_principal.serviceprincipal.id
 }
 
-resource "azurerm_role_assignment" "az-rbac-res-terraform-owner-graph" {
-  scope                = data.azurerm_storage_account.p-terra.id
-  role_definition_name = "Storage Blob Data Owner"
-  principal_id         = azuread_service_principal.msgraph.id
-}
+# resource "azurerm_role_assignment" "az-rbac-res-terraform-owner-graph" {
+#   scope                = data.azurerm_storage_account.p-terra.id
+#   role_definition_name = "Storage Blob Data Owner"
+#   principal_id         = azuread_service_principal.msgraph.id
+# }
