@@ -76,11 +76,17 @@ resource "azurerm_role_assignment" "subscriptioncontributor-sp" {
   principal_id         = azuread_service_principal.serviceprincipal.id
 }
 
+
+data "azurerm_storage_account" "p-terra" {
+  name                = "labtfstatepcxe0v"
+  resource_group_name = "lab-terraform"
+}
+
 ################################################
 #  Add Storage blob data owner to SP
 ################################################
 resource "azurerm_role_assignment" "az-rbac-res-terraform-owner" {
-  scope                = azurerm_storage_account.storage_account.id
+  scope                = data.azurerm_storage_account.p-terra.id
   role_definition_name = "Storage Blob Data Owner"
   principal_id         = azuread_service_principal.serviceprincipal.id
 }
