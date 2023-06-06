@@ -78,11 +78,12 @@ resource "azurerm_linux_virtual_machine" "srv01" {
   name                            = "${var.subscriptionname}-${var.lin-srv01}"
   resource_group_name             = azurerm_resource_group.lin-srv01.name
   location                        = azurerm_resource_group.lin-srv01.location
-  size                            = "Standard_B2ms" # Needs to be set 
+  size                            = "Standard_DS1_v2" # Needs to be set 
   admin_username                  = "sysadmin"
   admin_password                  = "Vinter2016"
   disable_password_authentication = false
   zone                            = 1 # change if putting into a cluster 
+
   network_interface_ids = [
     azurerm_network_interface.lin-srv01.id,
   ]
@@ -100,19 +101,20 @@ resource "azurerm_linux_virtual_machine" "srv01" {
     disk_size_gb         = 64
   }
 
-  source_image_reference {
-    publisher = "Canonical"
-    offer     = "UbuntuServer"
-    sku       = "18.04-LTS"
-    version   = "latest"
-  }
-
-  #   source_image_reference {
+  # source_image_reference {
   #   publisher = "Canonical"
-  #   offer     = "0001-com-ubuntu-server-focal"
-  #   sku       = "20_04-lts-gen2"
+  #   offer     = "UbuntuServer"
+  #   sku       = "18.04-LTS"
   #   version   = "latest"
   # }
+
+
+    source_image_reference {
+    publisher = "Canonical"
+    offer     = "0001-com-ubuntu-server-focal"
+    sku       = "20_04-lts-gen2"
+    version   = "latest"
+  }
 }
 
 
