@@ -1,4 +1,12 @@
 terraform {
+
+    backend "azurerm" {
+    resource_group_name  = "lab-terraform"
+    storage_account_name = "labtfstatepcxe0v"
+    container_name       = "p-terra"
+    key                  = "terraform.tfstate"
+    use_azuread_auth     = true
+  }
   required_providers {
     azurerm = {
       source = "hashicorp/azurerm"
