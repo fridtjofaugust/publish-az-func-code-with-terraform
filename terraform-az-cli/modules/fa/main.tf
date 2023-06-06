@@ -65,7 +65,7 @@ resource "azurerm_function_app" "function_app" {
   location            = var.location
   app_service_plan_id = azurerm_app_service_plan.app_service_plan.id
   app_settings = {
-    "WEBSITE_RUN_FROM_PACKAGE"    = "1",
+    "WEBSITE_RUN_FROM_PACKAGE"    = "1", # enables to run from package
     "FUNCTIONS_WORKER_RUNTIME"    = "node",
     "AzureWebJobsDisableHomepage" = "true",
     "WEBSITE_NODE_DEFAULT_VERSION" : var.os == "windows" ? "~14" : null
@@ -86,14 +86,11 @@ resource "azurerm_function_app" "function_app" {
   storage_account_access_key = azurerm_storage_account.storage_account.primary_access_key
   version                    = "~3"
 
-
   lifecycle {
     ignore_changes = [
-      app_settings["WEBSITE_CONTENTSHARE"],
+      app_settings["WEBSITE_CONTENTSHARE"]
     ]
   }
-
-
 }
 
 locals {
@@ -119,14 +116,6 @@ output "function_app_default_hostname" {
   value = azurerm_function_app.function_app.default_hostname
 }
 
-
-######################################################
-# VNET swift connection
-# ######################################################
-# resource "azurerm_app_service_virtual_network_swift_connection" "vnetintegrationconnection" {
-#   app_service_id = azurerm_function_app.function_app.id
-#   subnet_id      = azurerm_subnet.integrationsubnet.id
-# }
 
 ################################################
 # Create Random String

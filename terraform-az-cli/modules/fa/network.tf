@@ -78,3 +78,12 @@ resource "azurerm_subnet_network_security_group_association" "endpoint" {
   subnet_id                 = azurerm_subnet.endpointsubnet.id
   network_security_group_id = azurerm_network_security_group.endpoint.id
 }
+
+
+######################################################
+# App service  VNET swift connection
+# ######################################################
+# resource "azurerm_app_service_virtual_network_swift_connection" "vnetintegrationconnection" {
+#   app_service_id = azurerm_function_app.function_app.id
+#   subnet_id      = azurerm_subnet.integrationsubnet.id
+# }
