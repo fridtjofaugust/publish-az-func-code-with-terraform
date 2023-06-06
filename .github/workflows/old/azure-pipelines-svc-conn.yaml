@@ -1,0 +1,67 @@
+name: $(Build.Reason)-$(SourceBranchName)-$(Date:yyyyMMdd)-$(Rev:.r)
+
+trigger:
+- main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+- group: terraform-workshop-variables
+- name: terraformVersion
+  value: 1.2.8
+- name: workingDirectory
+  value: '$(System.DefaultWorkingDirectory)/cfg'
+
+steps:
+# TF init
+- task: AzureCLI@2
+  displayName: 'Init'
+  inputs:
+    azureSubscription: "lab-k8s-deploy"
+    scriptLocation: 'inlineScript'
+    scriptType: 'bash'
+    inlineScript: |
+      terraform init
+    workingDirectory: $(workingDirectory)
+
+# TF plan
+- task: AzureCLI@2
+  displayName: 'Plan'
+  inputs:
+    azureSubscription: "lab-k8s-deploy"
+    scriptLocation: 'inlineScript'
+    scriptType: 'bash'
+    inlineScript: |
+      terraform plan -refresh=true -lock=false -no-color -input=false -out=./tfplan 
+    workingDirectory: $(workingDirectory)
+
+
+# comment PR
+- task: PowerShell@2
+  displayName: 'Comment PR'
+  condition: and(succeeded(), eq(variables['Build.Reason'], 'PullRequest'))
+  inputs:
+    azureSubscription: "lab-k8s-deploy"
+    targetType: 'inline'
+    script: |
+      $pullRequestId = $env:SYSTEM_PULLREQUEST_PULLREQUESTID
+      $repositoryId = $env:BUILD_REPOSITORY_ID
+      $projectName = $env:SYSTEM_TEAMPROJECT
+      $organizationUri = $env:SYSTEM_COLLECTIONURI
+      $buildId = $env:BUILD_BUILDID
+      $terraformPlanCommand = "terraform plan -refresh=true -lock=false -no-color -input=false"    
+      & $(System.DefaultWorkingDirectory)/.pipelines/comment-pull-request.ps1 -OrganizationUri $organizationUri -Project $projectName -PersonAccessToken "$(adoCommentPersonalAccessToken)" -RepositoryId $repositoryId -PullRequestId $pullRequestId -BuildId $buildId -TerraformPlanCommand $terraformPlanCommand
+    workingDirectory: '$(workingDirectory)'
+
+# TF apply if plan succeed
+- task: AzureCLI@2
+  displayName: 'Apply'
+  condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+  inputs:
+    azureSubscription: "lab-k8s-deploy"
+    scriptLocation: 'inlineScript'
+    scriptType: 'bash'
+    inlineScript: |
+      terraform apply -no-color -auto-approve -input=false ./tfplan
+    workingDirectory: $(workingDirectory)

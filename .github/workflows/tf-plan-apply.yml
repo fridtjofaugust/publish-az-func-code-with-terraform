@@ -1,0 +1,52 @@
+name: 'Terraform Plan/Apply'
+
+on:
+  # push:
+  #   branches:
+  #   - main
+  workflow_dispatch:
+  
+#   pull_request:
+#     branches:
+#     - main
+
+# on:
+#   workflow_dispatch: 
+
+
+#These environment variables are used by the terraform azure provider to setup OIDD authenticate. 
+env:
+  ARM_CLIENT_ID: "${{ secrets.AZURE_CLIENT_ID }}"
+  ARM_SUBSCRIPTION_ID: "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+  ARM_TENANT_ID: "${{ secrets.AZURE_TENANT_ID }}"
+  ARM_CLIENT_SECRET: "${{ secrets.AZURE_CLIENT_SECRET }}"
+
+jobs:
+  terraform-plan:
+    name: 'Terraform Plan/Apply'
+    runs-on: ubuntu-latest
+    outputs:
+      tfplanExitCode: ${{ steps.tf-plan.outputs.exitcode }}
+    steps:
+    # Checkout the repository to the GitHub Actions runner
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    # Install the latest version of Terraform CLI and configure the Terraform CLI configuration file with a Terraform Cloud user API token
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+
+    # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
+    - name: Terraform Init
+      working-directory: cfg/  
+      run: terraform init
+
+    - name: Terraform Plan
+      working-directory: cfg/  
+      run: terraform plan -out=./tfplan
+
+    # Terraform Apply
+    - name: Terraform Apply
+      working-directory: cfg/  
+      run: terraform apply -no-color -auto-approve -input=false ./tfplan
+        

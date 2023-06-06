@@ -1,0 +1,58 @@
+name: $(Build.Reason)-$(SourceBranchName)-$(Date:yyyyMMdd)-$(Rev:.r)
+
+on:
+  workflow_dispatch:
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+
+stages:
+
+- stage: deploy_aks
+  displayName: Deploy AKS
+  jobs:
+  - template: /templates/deploy-aks.yml
+
+- stage: create_dns
+  dependsOn: deploy_aks
+  displayName: Create DNS record
+  jobs:
+  - template: /templates/dns-record.yml
+
+#- stage: import_images
+  #dependsOn: create_dns
+  #displayName: Import the images used by the Helm chart
+  #jobs:
+  #- template: /templates/import-images.yml
+
+- stage: deploy_nginx
+  dependsOn: create_dns
+  displayName: Deploy NGINX
+  jobs:
+  - template: /templates/deploy-nginx.yml
+
+- stage: deploy_app
+  dependsOn: [create_dns, deploy_nginx]
+  displayName: Deploy App
+  jobs:
+  - template: /templates/deploy-app.yml
+
+#- stage: persistent_volume
+  #dependsOn: deploy_aks
+  #displayName: Create Persistent Volume
+  #jobs:
+  #- template: /templates/presistent-volume.yml
+
+#- stage: deploy_to_aks
+  #dependsOn: deploy_aks
+  #displayName: Deploy to AKS
+  #jobs:
+  #- template: /templates/deploy-to-aks.yml    
+
+#- stage: create_dns_label
+  #dependsOn: deploy_to_aks
+  #displayName: Create DNS Label
+  #jobs:
+  #- template: /templates/dns-label.yml
+

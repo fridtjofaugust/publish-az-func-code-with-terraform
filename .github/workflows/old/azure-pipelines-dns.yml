@@ -1,0 +1,58 @@
+name: $(Build.Reason)-$(SourceBranchName)-$(Date:yyyyMMdd)-$(Rev:.r)
+
+
+trigger:
+- none
+
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:  
+  DnsLockName: DeleteDns 
+  DnsRecords: "@('*.customer','*.order','*.kedademo', 'customer','order','kedademo')"
+  DnsZoneName: 3965cdc0628c4898965e.westeurope.aksapp.io
+  ResourceGroupLocation: westeurope
+  ResourceGroupName: lab-k8s-rg
+  AksClusterName: lab-k8s-cluster
+
+steps:
+
+  - task: AzureCLI@2
+    displayName: "Get Kuard Ingress public IP"
+    inputs:
+      azureSubscription: '$(AzureSubscription)'
+      scriptType: 'pscore'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        $publicIpName = az network public-ip list --query "[?tags.service==`kuard/kuard-service`].name" -o tsv        
+        $ingressIp = az network public-ip show -g MC_$(ResourceGroupName)_$(AksClusterName)_$(ResourceGroupLocation) -n $publicIpName --query ipAddress
+        Write-Host "##vso[task.setvariable variable=IngressIp;]$ingressIp"   
+
+
+  - task: AzureCLI@2
+    displayName: "Delete existing DND Records"
+    inputs:
+      azureSubscription: '$(AzureSubscription)'
+      scriptType: 'pscore'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        ForEach ($dnsRecord in $(DnsRecords)) {
+          $ipAddress = az network dns record-set a show -g $(ResourceGroupName) -z $(DnsZoneName) --name $dnsRecord -o json --query aRecords[0].ipv4Address 
+          if ($ipAddress) 
+          {         
+            az network dns record-set a remove-record -g $(ResourceGroupName) -z $(DnsZoneName) --record-set-name $dnsRecord --ipv4-address $ipAddress
+          }          
+        }
+
+
+  - task: AzureCLI@2
+    displayName: "Set DNS A records"
+    inputs:
+      azureSubscription: '$(AzureSubscription)'
+      scriptType: 'pscore'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        ForEach ($dnsRecord in $(DnsRecords)) {
+          az network dns record-set a add-record -g $(ResourceGroupName) -z $(DnsZoneName) -n $dnsRecord -a $(IngressIp)
+        } 

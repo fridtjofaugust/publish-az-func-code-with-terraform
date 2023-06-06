@@ -1,0 +1,193 @@
+name: $(BuildDefinitionName)_$(date:yyyyMMdd)$(rev:.r)
+
+variables:
+ - group: terraform-workshop-variables
+  
+# should trigger on push to branches other than main to validate new
+
+# trigger:
+#   branches:
+#      exclude: 
+#       - main
+
+trigger: none
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+########################
+# Validate code stage
+########################
+stages:
+- stage: QualityCheckStage
+  displayName: Quality check code
+  jobs:
+
+      # init, fmt and validate
+    - job: check
+      displayName: Quality check code
+      continueOnError: false
+      steps:
+        - task: Bash@3
+          displayName: Terraform init
+          env:            
+              ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+              ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)              
+              ARM_TENANT_ID: $(ARM_TENANT_ID)
+          inputs:
+                workingDirectory: '$(System.DefaultWorkingDirectory)/cfg/'   
+                targetType: 'inline'
+                script: |
+                  terraform init
+
+        - task: Bash@3
+          displayName: Terraform validate
+          env:            
+              ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+              ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)              
+              ARM_TENANT_ID: $(ARM_TENANT_ID)
+          inputs:
+                workingDirectory: '$(System.DefaultWorkingDirectory)/cfg/'   
+                targetType: 'inline'
+                script: |
+                  terraform validate  
+
+########################
+# Security checks stage
+########################
+- stage: security
+  displayName: Code security checks
+  dependsOn: QualityCheckStage
+  jobs:
+
+############
+# Checkov
+############
+    - job: CheckovJob
+      displayName: Run Checkov Scan
+      steps:
+      # Checkov is a static code analysis tool for infrastructure-as-code.
+      # It scans cloud infrastructure provisioned using Terraform, Cloudformation, Kubernetes, Serverless 
+      # or ARM Templates and detects security and compliance misconfigurations.
+      - script: |
+          mkdir CheckovReport
+          docker pull bridgecrew/checkov
+          docker run -v $(System.DefaultWorkingDirectory)/cfg:/tf bridgecrew/checkov --directory /tf --output junitxml > $(System.DefaultWorkingDirectory)/CheckovReport/Checkov-Report.xml --skip-check CKV2_AZURE_1,CKV_AZURE_183,CKV2_AZURE_18,CKV_AZURE_12
+          docker run -v $(System.DefaultWorkingDirectory)/cfg:/tf bridgecrew/checkov --directory /tf 
+        displayName: 'Checkov Static Code Analysis'
+        name: CheckovScan
+        condition: always()
+        continueOnError: true
+      
+      # Publish the Checkov report as an artifact to Azure Pipelines
+      - task: PublishBuildArtifacts@1
+        displayName: 'Publish Artifact: Checkov Report'
+        condition: succeededOrFailed()
+        inputs:
+          PathtoPublish: '$(System.DefaultWorkingDirectory)/CheckovReport'
+          ArtifactName: CheckovReport
+
+      # Publish the results of the Checkov analysis as Test Results to the pipeline
+      - task: PublishTestResults@2
+        displayName: Publish Checkov Test Results
+        condition: succeededOrFailed()
+        inputs:
+          testResultsFormat: 'JUnit' # Options JUnit, NUnit, VSTest, xUnit, cTest
+          testResultsFiles: '**/*Checkov-Report.xml'
+          searchFolder: '$(System.DefaultWorkingDirectory)/CheckovReport'
+          mergeTestResults: false
+          testRunTitle: Checkov Scan
+          failTaskOnFailedTests: false
+          publishRunAttachments: true
+          
+
+      # Clean up any of the containers / images that were used for quality checks
+      - bash: |
+          docker rmi "bridgecrew/checkov" -f | true
+        displayName: 'Remove Terraform Quality Check Docker Images'
+        condition: always()
+
+############
+# TerraScan
+############
+    - job: TerraScanJob
+      displayName: Run TerraScan Scan
+      steps:
+      - script: | 
+          mkdir TerraScanReport
+          docker pull accurics/terrascan
+          docker run --rm --volume $(System.DefaultWorkingDirectory)/cfg:/iac --workdir /iac accurics/terrascan:latest scan --iac-type terraform --policy-type all --verbose --output xml > $(System.DefaultWorkingDirectory)/TerraScanReport/TerraScan-Report.xml
+          docker run --rm --volume $(System.DefaultWorkingDirectory)/cfg:/iac --workdir /iac accurics/terrascan:latest scan --iac-type terraform --policy-type all --verbose
+        displayName: 'Accurics TerraScan Code Analysis'
+        continueOnError: true
+      
+      - script: |
+          cd $(System.DefaultWorkingDirectory)/cfg/TerraScanReport
+          ls -la
+        displayName: 'DIR Contents'
+        condition: always()
+        continueOnError: true
+      
+      # Publish the TerraScan report as an artifact to Azure Pipelines
+      - task: PublishBuildArtifacts@1
+        displayName: 'Publish Artifact: Terrascan Report'
+        condition: succeededOrFailed()
+        inputs:
+          PathtoPublish: '$(System.DefaultWorkingDirectory)/TerraScanReport'
+          ArtifactName: TerrascanReport
+
+      - task: PublishTestResults@2
+        displayName: Publish Terrascan Test Results
+        condition: succeededOrFailed()
+        inputs:
+          testResultsFormat: 'JUnit' # Options JUnit, NUnit, VSTest, xUnit, cTest
+          testResultsFiles: '**/*TerraScan-Report.xml'
+          searchFolder: '$(System.DefaultWorkingDirectory)/TerraScanReport'
+          mergeTestResults: false
+          testRunTitle: Terrascan Scan
+          failTaskOnFailedTests: false
+          publishRunAttachments: true
+
+############
+# TFsec
+############
+    - job: TFSecJob
+      displayName: Run TFSec Scan
+      steps:
+      - bash: |
+          mkdir TFSecReport
+          docker pull liamg/tfsec:latest
+          docker run --rm -v $(System.DefaultWorkingDirectory)/cfg:/src liamg/tfsec ./src --format JUnit > $(System.DefaultWorkingDirectory)/TFSecReport/TFSec-Report.xml
+          docker run --rm -v $(System.DefaultWorkingDirectory)/cfg:/src liamg/tfsec ./src
+        displayName: TFSec Static Code Analysis
+        name: TFSecScan
+        condition: always()
+        continueOnError: true
+
+      # Publish the TFSec report as an artifact to Azure Pipelines
+      - task: PublishBuildArtifacts@1
+        displayName: 'Publish Artifact: TFSec Report'
+        condition: succeededOrFailed()
+        inputs:
+          PathtoPublish: '$(System.DefaultWorkingDirectory)/TFSecReport'
+          ArtifactName: TFSecReport
+
+      # Publish the results of the TFSec analysis as Test Results to the pipeline
+      - task: PublishTestResults@2
+        displayName: Publish TFSecReport Test Results
+        condition: succeededOrFailed()
+        inputs:
+          testResultsFormat: 'JUnit' # Options JUnit, NUnit, VSTest, xUnit, cTest
+          testResultsFiles: '**/*TFSec-Report.xml'
+          searchFolder: '$(System.DefaultWorkingDirectory)/TFSecReport'
+          testRunTitle: TFSec Scan
+          mergeTestResults: false
+          failTaskOnFailedTests: false
+          publishRunAttachments: true
+
+      # Clean up any of the containers / images that were used for quality checks
+      - bash: |
+          docker rmi "liamg/tfsec:latest" -f | true
+        displayName: 'Remove Terraform Quality Check Docker Images'
+        condition: always()
+

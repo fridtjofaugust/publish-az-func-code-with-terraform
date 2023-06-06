@@ -1,0 +1,203 @@
+name: Terraform Apply
+
+variables:
+  - group: terraform-workshop-variables
+
+# trigger:
+# - main
+
+trigger: none
+
+pool:
+  vmImage: "ubuntu-latest"
+
+########################
+# Security checks stage
+########################
+stages:
+  - stage: Checkov
+    displayName: Checkov - Scan Terraform files
+    jobs:
+      ############
+      # Checkov
+      ############
+      - job: CheckovJob
+        displayName: Run Checkov Scan
+        steps:
+          # Checkov is a static code analysis tool for infrastructure-as-code.
+          # It scans cloud infrastructure provisioned using Terraform, Cloudformation, Kubernetes, Serverless
+          # or ARM Templates and detects security and compliance misconfigurations.
+          - script: |
+              mkdir CheckovReport
+              docker pull bridgecrew/checkov
+              docker run -v $(System.DefaultWorkingDirectory)/cfg:/tf bridgecrew/checkov --directory /tf --output junitxml > $(System.DefaultWorkingDirectory)/CheckovReport/Checkov-Report.xml --skip-check CKV2_AZURE_1,CKV_AZURE_183,CKV2_AZURE_18,CKV_AZURE_12
+              docker run -v $(System.DefaultWorkingDirectory)/cfg:/tf bridgecrew/checkov --directory /tf
+            displayName: "Checkov Static Code Analysis"
+            name: CheckovScan
+            condition: always()
+            continueOnError: true # allow pipeline to continue despite errors by checkov
+
+          # Publish the Checkov report as an artifact to Azure Pipelines
+          - task: PublishBuildArtifacts@1
+            displayName: "Publish Artifact: Checkov Report"
+            condition: succeededOrFailed()
+            inputs:
+              PathtoPublish: "$(System.DefaultWorkingDirectory)/CheckovReport"
+              ArtifactName: CheckovReport
+
+          # Publish the results of the Checkov analysis as Test Results to the pipeline
+          - task: PublishTestResults@2
+            displayName: Publish Checkov Test Results
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: "JUnit" # Options JUnit, NUnit, VSTest, xUnit, cTest
+              testResultsFiles: "**/*Checkov-Report.xml"
+              searchFolder: "$(System.DefaultWorkingDirectory)/CheckovReport"
+              mergeTestResults: false
+              testRunTitle: Checkov Scan
+              failTaskOnFailedTests: false
+              publishRunAttachments: true
+
+          # Clean up any of the containers / images that were used for quality checks
+          - bash: |
+              docker rmi "bridgecrew/checkov" -f | true
+            displayName: "Remove Terraform Quality Check Docker Images"
+            condition: always()
+
+  ########################
+  # Validate code
+  ########################
+  - stage: TerraformValidate
+    displayName: Terraform - Validate
+    dependsOn: Checkov
+    jobs:
+      - job: validate
+        displayName: Terraform Validate
+        continueOnError: false
+        steps:
+          - task: Bash@3
+            displayName: Terraform init
+            env:
+              ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+              ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+              ARM_TENANT_ID: $(ARM_TENANT_ID)
+
+            inputs:
+              workingDirectory: "$(System.DefaultWorkingDirectory)/cfg/"
+              targetType: "inline"
+              script: |
+                terraform init
+
+          - task: Bash@3
+            displayName: Terraform validate
+            env:
+              ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+              ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+              ARM_TENANT_ID: $(ARM_TENANT_ID)
+            inputs:
+              workingDirectory: "$(System.DefaultWorkingDirectory)/cfg/"
+              targetType: "inline"
+              script: |
+                terraform validate
+
+  ########################
+  # Validate plan
+  ########################
+  - stage: TerraformPlan
+    displayName: Terraform - Plan
+    dependsOn: TerraformValidate
+    jobs:
+      - job: validate
+        displayName: Terraform plan
+        continueOnError: false # doesnt continue if error 
+        steps:
+          - task: Bash@3
+            displayName: Terraform init
+            env:
+              ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+              ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+              ARM_TENANT_ID: $(ARM_TENANT_ID)
+            inputs:
+              workingDirectory: "$(System.DefaultWorkingDirectory)/cfg/"
+              targetType: "inline"
+              script: |
+                terraform init
+
+          - task: Bash@3
+            displayName: Terraform plan
+            env:
+              ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+              ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+              ARM_TENANT_ID: $(ARM_TENANT_ID)
+            inputs:
+              workingDirectory: "$(System.DefaultWorkingDirectory)/cfg/"
+              targetType: "inline"
+              script: |
+                terraform plan
+
+          - task: Bash@3
+            displayName: Terraform show
+            env:
+              ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+              ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+              ARM_TENANT_ID: $(ARM_TENANT_ID)
+            inputs:
+              workingDirectory: "$(System.DefaultWorkingDirectory)/cfg/"
+              targetType: "inline"
+              script: |
+                terraform show
+
+  ###################################
+  # Apply plan 
+  ###################################
+  - stage: TerraformApply
+    displayName: Terraform - Manual Approval
+    dependsOn: TerraformPlan
+    jobs:
+
+      ########################
+      # Wait for approval
+      ########################
+      - job: "waitForValidation"
+        displayName: "Wait for manual approval"
+        pool: "server"
+        timeoutInMinutes: "4320" # job times out in 3 days
+        steps:
+          - task: ManualValidation@0
+            displayName: Manual approval
+            timeoutInMinutes: "1440" # task times out in 1 day
+            inputs:
+              notifyUsers: |
+                fridtjof.barfod@innofactor.com
+              instructions: "Please review the output of Terraform plan before approving."
+              onTimeout: "reject"
+
+      - job: "TerraformApprove"
+        displayName: "Terraform apply"
+        dependsOn: "waitForValidation"
+        steps:
+          - task: Bash@3
+            displayName: Terraform init
+            env:
+              ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+              ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+              ARM_TENANT_ID: $(ARM_TENANT_ID)
+
+            inputs:
+              workingDirectory: "$(System.DefaultWorkingDirectory)/cfg/"
+              targetType: "inline"
+              script: |
+                terraform init
+
+          - task: Bash@3
+            displayName: Terraform apply
+            env:
+              ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+              ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+              ARM_TENANT_ID: $(ARM_TENANT_ID)
+
+            inputs:
+              workingDirectory: "$(System.DefaultWorkingDirectory)/cfg/"
+              targetType: "inline"
+              script: |
+                terraform apply -auto-approve

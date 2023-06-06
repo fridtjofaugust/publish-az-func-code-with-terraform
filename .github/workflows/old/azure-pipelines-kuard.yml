@@ -1,0 +1,65 @@
+name: $(Build.Reason)-$(SourceBranchName)-$(Date:yyyyMMdd)-$(Rev:.r)
+
+trigger:
+  - main
+
+pool:
+  vmImage: "ubuntu-latest"
+
+variables:
+  workingDirectory: "$(System.DefaultWorkingDirectory)/cfg"
+  ResourceGroupName: "lab-k8s-rg"
+  AksClusterName: lab-k8s-cluster
+  #DnsZoneName: "0722d43401b64f9a9185.westeurope.aksapp.io"
+  NameSpace: "ingress-basic"
+  File: "kuard"
+  DeploymentPath: "./nginx-testing/"
+  k8sAzureService: "kuard/kuard-service"
+
+steps:
+  #Deploy Kuard Application.
+  - task: AzureCLI@2
+    enabled: true
+    displayName: "Deploy $(NameSpace) Application to lab-cluster"
+    env:
+      ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+      ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+      ARM_TENANT_ID: $(ARM_TENANT_ID)
+    inputs:
+      azureSubscription: "lab-k8s-deploy"
+      scriptLocation: "inlineScript"
+      scriptType: "bash"
+      inlineScript: |
+
+        rm -rf deploy && \
+        mkdir -p deploy && \
+        echo "Created directory [deploy]." || exit 2
+
+        az aks get-credentials \
+        --resource-group $(ResourceGroupName) \
+        --name $(AksClusterName) \
+        --file kubeconfig \
+        --admin
+
+        export KUBECONFIG=./kubeconfig
+
+        kubectl create namespace $(NameSpace) --dry-run=client -o yaml | kubectl apply -f -
+        kubectl delete secrets --all --namespace $(NameSpace)
+
+        if [ -f $(DeploymentPath)/$(NameSpace)-configmap.yml ]; then 
+          kubectl create configmap $(NameSpace)-configmap --from-file=$(DeploymentPath)/$(NameSpace)-configmap.yml --namespace $(NameSpace)
+          kubectl apply -f $(DeploymentPath)/$(NameSpace)-configmap.yml --namespace $(NameSpace)
+          echo "Created configmap $(NameSpace)-configmap"
+        else
+          echo "No configmap found."
+        fi
+
+        if [ -f $(DeploymentPath)/$(NameSpace)-secret.yml ]; then 
+          kubectl create secret generic $(NameSpace)-secret --from-file=$(DeploymentPath)/$(NameSpace)-secret.yml --namespace $(NameSpace)
+          echo "Created secret $(NameSpace)-secret"
+          kubectl apply -f $(DeploymentPath)/$(NameSpace)-secret.yml --namespace $(NameSpace)
+        else
+          echo "No secret found."
+        fi
+
+        kubectl apply -f $(DeploymentPath)/$(File).yml --namespace $(NameSpace)

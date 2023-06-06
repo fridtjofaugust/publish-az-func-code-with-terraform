@@ -1,0 +1,82 @@
+# This is a basic Azure DevOps pipeline to validate Terraform
+
+name: ' Validate Terraform code: '
+
+variables:
+  - group: 'terraform-workshop-variables'
+
+# We disable builds for any commits as everything should go through pull requests
+trigger:
+- main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+
+- script: |
+    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+    brew tap hashicorp/tap
+    brew install hashicorp/tap/terraform
+  displayName: 'Install Terraform'
+
+- script: |
+    terraform fmt -check
+  displayName: 'Check formatting of Terraform code'
+  workingDirectory: '$(System.DefaultWorkingDirectory)/cfg'
+  enabled: 'true'
+
+- script: |
+    terraform init -input=false -no-color \
+        -backend-config="storage_account_name=$(backendConfigStorageAccountName)" \
+        -backend-config="container_name=$(backendConfigContainerName)" \
+        -backend-config="key=$(backendConfigKey)" \
+        -backend-config="access_key=$(backendAccessKey)"
+  displayName: 'Terraform init'
+  workingDirectory: '$(System.DefaultWorkingDirectory)/cfg'
+  enabled: 'true'
+  env:
+    ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+
+- script: |
+    terraform validate -no-color
+  displayName: 'Terraform validate'
+  workingDirectory: '$(System.DefaultWorkingDirectory)/cfg'
+  enabled: 'true'
+
+- script: |
+    terraform plan -lock=false -input=false -no-color
+  displayName: 'Terraform plan'
+  workingDirectory: '$(System.DefaultWorkingDirectory)/cfg'
+  enabled: 'true'
+  env:
+    ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+
+
+- task: PowerShell@2
+  displayName: Update Pull Request
+  condition: and(succeeded(), eq(variables['Build.Reason'], 'PullRequest'))
+  inputs:
+    targetType: 'inline'
+    script: |
+      $pullRequestId = $env:SYSTEM_PULLREQUEST_PULLREQUESTID
+      $repositoryId = $env:BUILD_REPOSITORY_ID
+      $projectName = $env:SYSTEM_TEAMPROJECT
+      $organizationUri = $env:SYSTEM_COLLECTIONURI
+      $buildId = $env:BUILD_BUILDID
+      $terraformPlanCommand = "terraform plan -lock=false -input=false -no-color"    
+      & /.pipelines/comment-pull-request.ps1 -OrganizationUri $organizationUri -Project $projectName -PersonAccessToken "$(PULL_REQUEST_COMMENT_TOKEN)" -RepositoryId $repositoryId -PullRequestId $pullRequestId -BuildId $buildId -TerraformPlanCommand $terraformPlanCommand
+    workingDirectory: '$(System.DefaultWorkingDirectory)/cfg'
+  env:
+    ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+
+- task: CmdLine@2
+  displayName: 'Apply'
+  condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+  env:
+    ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+    ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+    ARM_TENANT_ID: $(ARM_TENANT_ID)
+  inputs:
+    script: terraform apply -auto-approve
+    workingDirectory: '$(System.DefaultWorkingDirectory)/cfg'
