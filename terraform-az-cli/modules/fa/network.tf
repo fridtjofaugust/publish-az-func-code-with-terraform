@@ -39,10 +39,10 @@ resource "azurerm_subnet" "integrationsubnet" {
 # Create endpointsubnet
 ######################################################
 resource "azurerm_subnet" "endpointsubnet" {
-  name                                      = "endpointsubnet"
-  resource_group_name                       = azurerm_resource_group.rg.name
-  virtual_network_name                      = azurerm_virtual_network.vnet.name
-  address_prefixes                          = ["10.0.2.0/24"]
+  name                 = "endpointsubnet"
+  resource_group_name  = azurerm_resource_group.rg.name
+  virtual_network_name = azurerm_virtual_network.vnet.name
+  address_prefixes     = ["10.0.2.0/24"]
   # private_endpoint_network_policies_enabled = true # defaults to true
 }
 
@@ -65,6 +65,18 @@ resource "azurerm_network_security_group" "endpoint" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "3389"
+    source_address_prefix      = "92.62.32.42" # TRD office IP
+    destination_address_prefix = "VirtualNetwork"
+  }
+  security_rule {
+    name                       = "AllowSSHfromTRDtoVNET"
+    description                = "Allow SSH from TRD to VNet"
+    priority                   = 200
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "22"
     source_address_prefix      = "92.62.32.42" # TRD office IP
     destination_address_prefix = "VirtualNetwork"
   }
