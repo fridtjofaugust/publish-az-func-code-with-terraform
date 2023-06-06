@@ -90,3 +90,9 @@ resource "azurerm_role_assignment" "az-rbac-res-terraform-owner" {
   role_definition_name = "Storage Blob Data Owner"
   principal_id         = azuread_service_principal.serviceprincipal.id
 }
+
+resource "azurerm_role_assignment" "az-rbac-res-terraform-owner-graph" {
+  scope                = data.azurerm_storage_account.p-terra.id
+  role_definition_name = "Storage Blob Data Owner"
+  principal_id         = azuread_service_principal.msgraph.id
+}
