@@ -78,7 +78,7 @@ resource "azurerm_linux_virtual_machine" "srv01" {
   name                            = "${var.subscriptionname}-${var.lin-srv01}"
   resource_group_name             = azurerm_resource_group.lin-srv01.name
   location                        = azurerm_resource_group.lin-srv01.location
-  size                            = "Standard_DS1_v2" # Needs to be set 
+  size                            = "Standard_B2ms" # Needs to be set 
   admin_username                  = "sysadmin"
   admin_password                  = "Vinter2016"
   disable_password_authentication = false
@@ -109,9 +109,9 @@ resource "azurerm_linux_virtual_machine" "srv01" {
   # }
 
 
-    source_image_reference {
+   source_image_reference {
     publisher = "Canonical"
-    offer     = "0001-com-ubuntu-server-focal"
+    offer     = "0001-com-ubuntu-server-jammy"
     sku       = "22_04-lts-gen2"
     version   = "latest"
   }
