@@ -12,7 +12,7 @@ terraform {
       source = "hashicorp/azurerm"
       # Root module should specify the maximum provider version
       # The ~> operator is a convenient shorthand for allowing only patch releases within a specific minor release.
-      version = "~> 2.26"
+      version = "~> 3.58"
     }
     random = {
       source  = "hashicorp/random"
@@ -98,3 +98,48 @@ output "linux_premium_hostname" {
 # output "windows_consumption_hostname" {
 #   value = module.windows_consumption.function_app_default_hostname
 # }
+
+
+################################################
+# Create Resource Group
+################################################
+resource "azurerm_resource_group" "resource_group_web" {
+  name     = "tf-resource-group"
+  location = "westeurope"
+}
+
+
+################################################
+# Create service plan
+################################################
+resource "azurerm_service_plan" "webapps" {
+  name                = "lab-webapps-plan"
+  resource_group_name = azurerm_resource_group.resource_group_web.name
+  location            = azurerm_resource_group.resource_group_web.location
+  os_type             = "Linux"
+  sku_name            = "S1" # Basic: 1 core, 1.75 GB ram. Options: B1 B2 B3 S1 S2 S3 P1v2 P2v2 P3v2 P1v3 P2v3 P3v3
+}
+
+
+
+################################################
+# Create linux service app
+################################################
+resource "azurerm_linux_web_app" "web_app" {
+  name                = "web-app-service-zipdeploy"
+  location            = azurerm_resource_group.resource_group_web.location
+  resource_group_name = azurerm_resource_group.resource_group_web.name
+  service_plan_id     = azurerm_service_plan.webapps.id
+
+  app_settings = {
+    WEBSITE_RUN_FROM_PACKAGE       = "1"
+    SCM_DO_BUILD_DURING_DEPLOYMENT = "true"
+  }
+
+  site_config {
+    application_stack {
+      python_version = "3.9"
+    }
+  }
+  zip_deploy_file = "function-app.zip"
+}
