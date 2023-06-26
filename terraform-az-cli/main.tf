@@ -141,5 +141,5 @@ resource "azurerm_linux_web_app" "web_app" {
       python_version = "3.9"
     }
   }
-  zip_deploy_file = "function-app.zip"
+  zip_deploy_file = "./function-app.zip"
 }
